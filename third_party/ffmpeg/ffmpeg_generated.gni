@@ -386,3 +386,13 @@ if (use_linux_config && current_cpu == "riscv64") {
     "libavutil/riscv/float_dsp_rvv.S",
   ]
 }
+
+if(current_cpu == "riscv64"){
+  ffmpeg_c_sources += [
+    "libavcodec/esmpp_comm.c",
+    "libavcodec/esmppdec.c",
+    "libavcodec/esmppenc.c",
+    "libavcodec/bsf/h264_mp4toannexb.c",
+    "libavcodec/bsf/hevc_mp4toannexb.c",
+  ]
+}
