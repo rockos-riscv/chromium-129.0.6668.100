@@ -964,6 +964,8 @@ VideoPixelFormat AVPixelFormatToVideoPixelFormat(AVPixelFormat pixel_format) {
     case AV_PIX_FMT_YUV444P12LE:
     case AV_PIX_FMT_GBRP12LE:
       return PIXEL_FORMAT_YUV444P12;
+    case AV_PIX_FMT_NV12:
+      return PIXEL_FORMAT_NV12;
 
     default:
       // FFmpeg knows more pixel formats than Chromium cares about.
