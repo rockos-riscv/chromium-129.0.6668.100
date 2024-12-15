@@ -35,6 +35,9 @@
 #include "media/ffmpeg/ffmpeg_decoding_loop.h"
 #include "media/filters/ffmpeg_glue.h"
 
+#include "base/logging.h"
+#define ENABLE_ESMPP_DECODER
+
 namespace media {
 
 namespace {
@@ -82,7 +85,7 @@ static int GetFFmpegVideoDecoderThreadCount(const VideoDecoderConfig& config) {
     case VideoCodec::kUnknown:
     case VideoCodec::kVC1:
     case VideoCodec::kMPEG2:
-    case VideoCodec::kHEVC:
+    // case VideoCodec::kHEVC:
     case VideoCodec::kVP9:
     case VideoCodec::kAV1:
     case VideoCodec::kDolbyVision:
@@ -93,6 +96,7 @@ static int GetFFmpegVideoDecoderThreadCount(const VideoDecoderConfig& config) {
       NOTREACHED();
 
     case VideoCodec::kH264:
+    case VideoCodec::kHEVC:
       // Normalize to three threads for 1080p content, then scale linearly
       // with number of pixels.
       // Examples:
@@ -157,7 +161,8 @@ int FFmpegVideoDecoder::GetVideoBuffer(struct AVCodecContext* codec_context,
          format == PIXEL_FORMAT_YUV420P10 || format == PIXEL_FORMAT_YUV422P9 ||
          format == PIXEL_FORMAT_YUV422P10 || format == PIXEL_FORMAT_YUV444P9 ||
          format == PIXEL_FORMAT_YUV444P10 || format == PIXEL_FORMAT_YUV420P12 ||
-         format == PIXEL_FORMAT_YUV422P12 || format == PIXEL_FORMAT_YUV444P12);
+         format == PIXEL_FORMAT_YUV422P12 || format == PIXEL_FORMAT_YUV444P12 ||
+         format == PIXEL_FORMAT_NV12);
 
   // Do not trust `codec_context` sizes either.  Use whatever `frame` requests.
   gfx::Size coded_size(frame->width, frame->height);
@@ -353,6 +358,12 @@ bool FFmpegVideoDecoder::FFmpegDecode(const DecoderBuffer& buffer) {
     packet->data = const_cast<uint8_t*>(buffer.data());
     packet->size = buffer.size();
 
+#ifdef ENABLE_ESMPP_DECODER
+    codec_context_.get()->time_base= {1, 1000000};//mean microseconds
+    int64_t dts = av_rescale_q(buffer.timestamp().InMicroseconds(), AV_TIME_BASE_Q,  codec_context_.get()->time_base);//buffer.timestamp().InMicroseconds();
+    packet->dts = dts;
+    //printf("Decode packet dts %ld, data %02x %02x %02x %02x %02x, size %d\n", dts, packet->data[0],packet->data[1],packet->data[2], packet->data[3],packet->data[4], packet->size);
+#endif
     DCHECK(packet->data);
     DCHECK_GT(packet->size, 0);
 
@@ -371,10 +382,12 @@ bool FFmpegVideoDecoder::FFmpegDecode(const DecoderBuffer& buffer) {
           << "Failed to send video packet for decoding: "
           << buffer.AsHumanReadableString();
       return false;
-    case FFmpegDecodingLoop::DecodeStatus::kFrameProcessingFailed:
+    case FFmpegDecodingLoop::DecodeStatus::kFrameProcessingFailed://NV12 will reach this
       // OnNewFrame() should have already issued a MEDIA_LOG for this.
+      LOG(WARNING) << "kFrameProcessingFailed";
       return false;
     case FFmpegDecodingLoop::DecodeStatus::kDecodeFrameFailed:
+      LOG(WARNING) << "kDecodeFrameFailed";
       MEDIA_LOG(DEBUG, media_log_)
           << GetDecoderType() << " failed to decode a video frame: "
           << AVErrorToString(decoding_loop_->last_averror_code()) << ", at "
@@ -391,12 +404,15 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
   // TODO(fbarchard): Work around for FFmpeg http://crbug.com/27675
   // The decoder is in a bad state and not decoding correctly.
   // Checking for NULL avoids a crash in CopyPlane().
+  // NV12 fomat will return this
+#if 0
   if (!frame->data[VideoFrame::Plane::kY] ||
       !frame->data[VideoFrame::Plane::kU] ||
       !frame->data[VideoFrame::Plane::kV]) {
     DLOG(ERROR) << "Video frame was produced yet has invalid frame data.";
     return false;
   }
+#endif
 
   auto* opaque = static_cast<OpaqueData*>(av_buffer_get_opaque(frame->buf[0]));
   CHECK(!!opaque);
@@ -461,7 +477,10 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
 
   // Prefer the frame color space over what's in the config.
   video_frame->set_color_space(color_space.IsValid() ? color_space : config_cs);
-
+#ifdef ENABLE_ESMPP_DECODER
+  int64_t pts = av_rescale_q(frame->pts, codec_context_.get()->time_base, AV_TIME_BASE_Q);
+  video_frame->set_timestamp(base::Microseconds(pts));
+#endif
   video_frame->metadata().power_efficient = false;
   video_frame->AddDestructionObserver(
       frame_pool_->CreateFrameCallback(opaque->fb_priv));
@@ -472,6 +491,15 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
 void FFmpegVideoDecoder::ReleaseFFmpegResources() {
   decoding_loop_.reset();
   codec_context_.reset();
+}
+
+static void custom_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
+
+    char log[1024] = {0};
+    vsnprintf(log, sizeof(log) - 1, fmt, vl);
+    if(level <= AV_LOG_WARNING){
+        LOG(WARNING) << "FFmpeg:" << log ;
+    }
 }
 
 bool FFmpegVideoDecoder::ConfigureDecoder(const VideoDecoderConfig& config,
@@ -504,11 +532,50 @@ bool FFmpegVideoDecoder::ConfigureDecoder(const VideoDecoderConfig& config,
     codec_context_->flags2 |= AV_CODEC_FLAG2_CHUNKS;
   }
 
+// #ifndef ENABLE_ESMPP_DECODER//original soft decoder
+#if 1
   const AVCodec* codec = avcodec_find_decoder(codec_context_->codec_id);
   if (!codec || avcodec_open2(codec_context_.get(), codec, NULL) < 0) {
     ReleaseFFmpegResources();
     return false;
   }
+  LOG(WARNING) << "Using SW decoder";
+#else
+  const AVCodec* codec=NULL;
+  int ret  = 0;
+  LOG(WARNING) << "Using ESMPP decoder";
+  switch( codec_context_->codec_id ){
+    case AV_CODEC_ID_H264:
+        codec = avcodec_find_decoder_by_name("h264_esmpp_decoder");
+        break;
+    case AV_CODEC_ID_HEVC:
+        codec = avcodec_find_decoder_by_name("hevc_esmpp_decoder");
+        break;
+    default:
+	      LOG(WARNING) << "unsupport ESMPP codec,  codec id " << codec_context_->codec_id;
+        codec = avcodec_find_decoder(codec_context_->codec_id);
+        break;
+  }
+
+  av_log_set_level(AV_LOG_WARNING);
+  av_log_set_callback(custom_log_callback);
+  //codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
+  codec_context_->pix_fmt = AV_PIX_FMT_NV12;
+  if(codec == NULL){
+       LOG(WARNING) << "unsupport ffmpeg decoder " << codec_context_->codec_id;
+  }
+
+  if ( (ret = avcodec_open2(codec_context_.get(), codec, NULL)) < 0) {
+
+    char error_msg[256] = { 0 };
+    av_strerror(ret, error_msg, sizeof(error_msg));
+    LOG(ERROR) << "avcodec_open2 failed with error: "<< error_msg << "with codec id " << codec_context_->codec_id;
+
+    ReleaseFFmpegResources();
+    return false;
+  }
+  LOG(WARNING) << "Open Decoder success";
+#endif
 
   decoding_loop_ = std::make_unique<FFmpegDecodingLoop>(codec_context_.get());
   return true;

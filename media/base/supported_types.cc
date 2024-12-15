@@ -371,11 +371,12 @@ bool IsDefaultSupportedVideoType(const VideoType& type) {
   if (IsVideoCodecProprietary(type.codec))
     return false;
 #endif
-
+  //LOG(WARNING) << "Default video type " << type.codec;
   switch (type.codec) {
     case VideoCodec::kTheora:
       return IsBuiltInVideoCodec(type.codec);
     case VideoCodec::kH264:
+    case VideoCodec::kHEVC:
       return true;
     case VideoCodec::kVP8:
       return IsBuiltInVideoCodec(type.codec)
@@ -386,8 +387,8 @@ bool IsDefaultSupportedVideoType(const VideoType& type) {
       return IsAV1Supported(type);
     case VideoCodec::kVP9:
       return IsVp9ProfileSupported(type);
-    case VideoCodec::kHEVC:
-      return IsHevcProfileSupported(type);
+    // case VideoCodec::kHEVC:
+    //   return IsHevcProfileSupported(type);
     case VideoCodec::kDolbyVision:
       return IsDolbyVisionProfileSupported(type);
     case VideoCodec::kUnknown:
