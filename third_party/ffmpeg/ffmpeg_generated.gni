@@ -392,7 +392,8 @@ if(current_cpu == "riscv64"){
     "libavcodec/esmpp_comm.c",
     "libavcodec/esmppdec.c",
     "libavcodec/esmppenc.c",
-    "libavcodec/bsf/h264_mp4toannexb.c",
-    "libavcodec/bsf/hevc_mp4toannexb.c",
+    "libavcodec/h264_mp4toannexb.c",
+    "libavcodec/hevc_mp4toannexb.c",
   ]
 }
+
