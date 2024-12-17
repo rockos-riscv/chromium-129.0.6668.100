@@ -478,8 +478,8 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
   // Prefer the frame color space over what's in the config.
   video_frame->set_color_space(color_space.IsValid() ? color_space : config_cs);
 #ifdef ENABLE_ESMPP_DECODER
-  int64_t pts = av_rescale_q(frame->pts, codec_context_.get()->time_base, AV_TIME_BASE_Q);
-  video_frame->set_timestamp(base::Microseconds(pts));
+  int64_t esmpp_pts = av_rescale_q(frame->pts, codec_context_.get()->time_base, AV_TIME_BASE_Q);
+  video_frame->set_timestamp(base::Microseconds(esmpp_pts));
 #endif
   video_frame->metadata().power_efficient = false;
   video_frame->AddDestructionObserver(
