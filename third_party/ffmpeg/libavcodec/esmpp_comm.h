@@ -12,6 +12,7 @@
 #include "libavutil/time.h"
 #include <libavutil/frame.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/mem.h>
 
 #ifndef SUCCESS
 #define SUCCESS (0)
