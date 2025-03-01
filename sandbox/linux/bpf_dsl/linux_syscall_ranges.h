@@ -65,7 +65,7 @@
 
 #elif defined(__riscv)
 
-#include <asm/unistd.h>
+#include <asm-generic/unistd.h>
 #define MIN_SYSCALL 0u
 #define MAX_PUBLIC_SYSCALL __NR_syscalls
 #define MAX_SYSCALL MAX_PUBLIC_SYSCALL
