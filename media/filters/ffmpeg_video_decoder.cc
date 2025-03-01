@@ -358,12 +358,6 @@ bool FFmpegVideoDecoder::FFmpegDecode(const DecoderBuffer& buffer) {
     packet->data = const_cast<uint8_t*>(buffer.data());
     packet->size = buffer.size();
 
-#ifdef ENABLE_ESMPP_DECODER
-    codec_context_.get()->time_base= {1, 1000000};//mean microseconds
-    int64_t dts = av_rescale_q(buffer.timestamp().InMicroseconds(), AV_TIME_BASE_Q,  codec_context_.get()->time_base);//buffer.timestamp().InMicroseconds();
-    packet->dts = dts;
-    //printf("Decode packet dts %ld, data %02x %02x %02x %02x %02x, size %d\n", dts, packet->data[0],packet->data[1],packet->data[2], packet->data[3],packet->data[4], packet->size);
-#endif
     DCHECK(packet->data);
     DCHECK_GT(packet->size, 0);
 
@@ -426,7 +420,6 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
   const gfx::Rect visible_rect(frame->crop_left, frame->crop_top,
                                frame->width - frame->crop_right,
                                frame->height - frame->crop_bottom);
-
   // Why do we prefer the container aspect ratio here?
   VideoAspectRatio aspect_ratio = config_.aspect_ratio();
   if (!aspect_ratio.IsValid() && frame->sample_aspect_ratio.num > 0) {
@@ -477,10 +470,6 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
 
   // Prefer the frame color space over what's in the config.
   video_frame->set_color_space(color_space.IsValid() ? color_space : config_cs);
-#ifdef ENABLE_ESMPP_DECODER
-  int64_t esmpp_pts = av_rescale_q(frame->pts, codec_context_.get()->time_base, AV_TIME_BASE_Q);
-  video_frame->set_timestamp(base::Microseconds(esmpp_pts));
-#endif
   video_frame->metadata().power_efficient = false;
   video_frame->AddDestructionObserver(
       frame_pool_->CreateFrameCallback(opaque->fb_priv));
@@ -533,7 +522,7 @@ bool FFmpegVideoDecoder::ConfigureDecoder(const VideoDecoderConfig& config,
   }
 
 // #ifndef ENABLE_ESMPP_DECODER//original soft decoder
-#if 1
+#if 0
   const AVCodec* codec = avcodec_find_decoder(codec_context_->codec_id);
   if (!codec || avcodec_open2(codec_context_.get(), codec, NULL) < 0) {
     ReleaseFFmpegResources();
@@ -546,13 +535,13 @@ bool FFmpegVideoDecoder::ConfigureDecoder(const VideoDecoderConfig& config,
   LOG(WARNING) << "Using ESMPP decoder";
   switch( codec_context_->codec_id ){
     case AV_CODEC_ID_H264:
-        codec = avcodec_find_decoder_by_name("h264_esmpp_decoder");
+        codec = avcodec_find_decoder_by_name("h264_esmppvdec");
         break;
     case AV_CODEC_ID_HEVC:
-        codec = avcodec_find_decoder_by_name("hevc_esmpp_decoder");
+        codec = avcodec_find_decoder_by_name("hevc_esmppvdec");
         break;
     default:
-	      LOG(WARNING) << "unsupport ESMPP codec,  codec id " << codec_context_->codec_id;
+	LOG(WARNING) << "unsupport ESMPP codec,  codec id " << codec_context_->codec_id;
         codec = avcodec_find_decoder(codec_context_->codec_id);
         break;
   }
@@ -565,8 +554,7 @@ bool FFmpegVideoDecoder::ConfigureDecoder(const VideoDecoderConfig& config,
        LOG(WARNING) << "unsupport ffmpeg decoder " << codec_context_->codec_id;
   }
 
-  if ( (ret = avcodec_open2(codec_context_.get(), codec, NULL)) < 0) {
-
+  if ((ret = avcodec_open2(codec_context_.get(), codec, NULL)) < 0) {
     char error_msg[256] = { 0 };
     av_strerror(ret, error_msg, sizeof(error_msg));
     LOG(ERROR) << "avcodec_open2 failed with error: "<< error_msg << "with codec id " << codec_context_->codec_id;
