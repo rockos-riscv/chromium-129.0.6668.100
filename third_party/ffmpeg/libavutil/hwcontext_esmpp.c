@@ -29,6 +29,8 @@
 #include "hwcontext_internal.h"
 #include "imgutils.h"
 
+#include "mem.h"
+
 static const struct {
     enum AVPixelFormat pixfmt;
     uint32_t drm_format;

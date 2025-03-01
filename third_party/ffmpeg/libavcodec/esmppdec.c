@@ -600,9 +600,10 @@ static int mpp_decode_export_frame(AVCodecContext *avctx, AVFrame *frame, MppFra
     frame->time_base = avctx->pkt_timebase;
     frame->colorspace = mpp_frame_get_colorspace(mpp_frame);
     frame->color_range = mpp_frame_get_color_range(mpp_frame);
-#if 0  // for vlc master
+#if 1  // for vlc master
     if (avctx->flags & AV_CODEC_FLAG_COPY_OPAQUE) {
-        frame->opaque_ref = (AVBufferRef *)mpp_frame_get_reordered_opaque(mpp_frame);
+       // frame->opaque_ref = (AVBufferRef *)mpp_frame_get_reordered_opaque(mpp_frame); //for vlc
+	frame->opaque = (ES_VOID *)mpp_frame_get_reordered_opaque(mpp_frame); //for chromium
     }
 #endif
     if ((avctx->codec_id == AV_CODEC_ID_HEVC || avctx->codec_id == AV_CODEC_ID_H264)
@@ -891,11 +892,15 @@ static int mpp_decode_send_packet(AVCodecContext *avctx, AVPacket *pkt) {
     }
     mpp_packet_set_pts(mpp_pkt, pkt->pts);
     mpp_packet_set_dts(mpp_pkt, pkt->dts);
-#if 0  // for vlc master
+#if 1  // for vlc master
     if (avctx->flags & AV_CODEC_FLAG_COPY_OPAQUE) {
         /*tmp_opaque_ref will be released by av_frame_free*/
-        AVBufferRef *tmp_opaque_ref = av_buffer_ref(pkt->opaque_ref);
-        mpp_packet_set_reordered_opaque(mpp_pkt, (ES_S64)tmp_opaque_ref);
+	if(pkt->opaque_ref) { //for vlc
+	    AVBufferRef *tmp_opaque_ref = av_buffer_ref(pkt->opaque_ref);
+            mpp_packet_set_reordered_opaque(mpp_pkt, (ES_S64)tmp_opaque_ref);
+	} else {
+	    mpp_packet_set_reordered_opaque(mpp_pkt, (ES_S64)pkt->opaque); //for chromium
+	}
     }
 #endif
     if ((ret = esmpp_put_packet(r->mctx, mpp_pkt)) != MPP_OK) {
