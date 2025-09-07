@@ -584,6 +584,7 @@ OBJS-$(CONFIG_VSTACK_QSV_FILTER)             += vf_stack_qsv.o framesync.o
 OBJS-$(CONFIG_XSTACK_QSV_FILTER)             += vf_stack_qsv.o framesync.o
 OBJS-$(CONFIG_PAD_VAAPI_FILTER)              += vf_pad_vaapi.o vaapi_vpp.o
 OBJS-$(CONFIG_DRAWBOX_VAAPI_FILTER)          += vf_drawbox_vaapi.o vaapi_vpp.o
+OBJS-$(CONFIG_ESMPP)                         += vf_esmpp_complex.o vf_esmpp_common.o vf_stack_esmpp.o framesync.o
 
 OBJS-$(CONFIG_ALLRGB_FILTER)                 += vsrc_testsrc.o
 OBJS-$(CONFIG_ALLYUV_FILTER)                 += vsrc_testsrc.o
