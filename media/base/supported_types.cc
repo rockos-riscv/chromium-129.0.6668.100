@@ -443,7 +443,7 @@ bool IsDefaultSupportedAudioType(const AudioType& type) {
 
 bool IsBuiltInVideoCodec(VideoCodec codec) {
 #if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && BUILDFLAG(USE_PROPRIETARY_CODECS)
-  if (codec == VideoCodec::kH264 &&
+  if (((codec == VideoCodec::kH264) || (codec == VideoCodec::kHEVC)) &&
       base::FeatureList::IsEnabled(kBuiltInH264Decoder)) {
     return true;
   }
