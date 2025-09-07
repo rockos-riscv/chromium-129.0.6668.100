@@ -267,11 +267,11 @@ static int esmpp_get_aligned_linesize(enum AVPixelFormat pix_fmt, int width, int
 }
 
 static AVBufferRef *esmpp_drm_pool_alloc(void *opaque, size_t size) {
-    ES_RETURN_VAL_IF_FAIL(opaque, AVERROR(EINVAL));
+    ES_RETURN_VAL_IF_FAIL(opaque, NULL);
     int ret;
     AVHWFramesContext *hwfc = opaque;
     AVESMPPFramesContext *avfc = hwfc->hwctx;
-    ES_RETURN_VAL_IF_FAIL(avfc, AVERROR(EINVAL));
+    ES_RETURN_VAL_IF_FAIL(avfc, NULL);
     AVESMPPDRMFrameDescriptor *desc;
     AVDRMLayerDescriptor *layer;
     AVBufferRef *ref;
