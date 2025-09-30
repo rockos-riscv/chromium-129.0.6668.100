@@ -1781,7 +1781,7 @@ void FFmpegDemuxer::FindAndEnableProperTracks(
     if (stream && stream->type() == track_type &&
         enabled_streams.find(stream.get()) == enabled_streams.end()) {
       DVLOG(1) << __func__ << ": disabling stream " << stream.get();
-      stream->SetEnabled(false, curr_time);
+      // stream->SetEnabled(false, curr_time);
     }
   }
 
