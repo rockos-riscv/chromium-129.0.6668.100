@@ -548,6 +548,11 @@ extern const AVFilter ff_vf_vstack_qsv;
 extern const AVFilter ff_vf_xstack_qsv;
 extern const AVFilter ff_vf_pad_vaapi;
 extern const AVFilter ff_vf_drawbox_vaapi;
+extern const AVFilter ff_vf_complex_esmpp;
+extern const AVFilter ff_vf_stack_esmpp;
+extern const AVFilter ff_vf_addroi_esmpp;
+extern const AVFilter ff_vf_drawtext_esmpp;
+extern const AVFilter ff_vf_select_esmpp;
 
 extern const AVFilter ff_vsrc_allrgb;
 extern const AVFilter ff_vsrc_allyuv;
